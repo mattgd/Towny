@@ -3,8 +3,6 @@ package com.palmergames.bukkit.towny.listeners;
 import java.util.Collections;
 import java.util.List;
 
-import net.citizensnpcs.api.CitizensAPI;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -64,18 +62,15 @@ public class TownyEntityListener implements Listener {
 	private final Towny plugin;
 
 	public TownyEntityListener(Towny instance) {
-
 		plugin = instance;
 	}
 
 	/**
 	 * Prevent PvP and PvM damage dependent upon PvP settings and location.
-	 * 
 	 * @param event
 	 */
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-
 		if (plugin.isError()) {
 			event.setCancelled(true);
 			return;
@@ -85,17 +80,12 @@ public class TownyEntityListener implements Listener {
 
 		// Not wartime
 		if (!TownyUniverse.isWarTime()) {
-
 			if (CombatUtil.preventDamageCall(plugin, attacker, event.getEntity())) {
-				// Remove the projectile here so no
-				// other events can fire to cause damage
-				if (attacker instanceof Projectile)
-					attacker.remove();
-
+				// Remove the projectile here so no other events can fire to cause damage
+				if (attacker instanceof Projectile) attacker.remove();
 				event.setCancelled(true);
 			}
 		}
-
 	}
 
 	/**
@@ -283,32 +273,15 @@ public class TownyEntityListener implements Listener {
 			// remove from world if set to remove mobs globally
 			if (townyWorld.isUsingTowny())
 				if (!townyWorld.hasWorldMobs() && ((MobRemovalTimerTask.isRemovingWorldEntity(livingEntity) || ((livingEntity instanceof Villager) && !((Villager) livingEntity).isAdult() && (TownySettings.isRemovingVillagerBabiesWorld()))))) {
-					if (plugin.isCitizens2()) {
-						if (!CitizensAPI.getNPCRegistry().isNPC(livingEntity)) {
-							// TownyMessaging.sendDebugMsg("onCreatureSpawn world: Canceled "
-							// + event.getEntityType().name() +
-							// " from spawning within "+coord.toString()+".");
-							event.setCancelled(true);
-						}
-					} else
-						event.setCancelled(true);
+					event.setCancelled(true);
 				}
-
 			// remove from towns if in the list and set to remove
 			try {
 				TownBlock townBlock = townyWorld.getTownBlock(coord);
 				if (townyWorld.isUsingTowny() && !townyWorld.isForceTownMobs()) {
 					if (!townBlock.getTown().hasMobs() && !townBlock.getPermissions().mobs) {
 						if ((MobRemovalTimerTask.isRemovingTownEntity(livingEntity) || ((livingEntity instanceof Villager) && !((Villager) livingEntity).isAdult() && (TownySettings.isRemovingVillagerBabiesTown())))) {
-							if (plugin.isCitizens2()) {
-								if (!CitizensAPI.getNPCRegistry().isNPC(livingEntity)) {
-									// TownyMessaging.sendDebugMsg("onCreatureSpawn town: Canceled "
-									// + event.getEntityType().name() +
-									// " from spawning within "+coord.toString()+".");
-									event.setCancelled(true);
-								}
-							} else
-								event.setCancelled(true);
+							event.setCancelled(true);
 						}
 					}
 				}

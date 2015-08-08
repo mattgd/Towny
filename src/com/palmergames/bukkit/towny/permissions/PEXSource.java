@@ -9,6 +9,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
 
+import com.palmergames.bukkit.towny.Towny;
+import com.palmergames.bukkit.towny.TownySettings;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
+import com.palmergames.bukkit.towny.object.Resident;
+import com.palmergames.bukkit.towny.object.TownyUniverse;
+import com.palmergames.bukkit.util.BukkitTools;
+
 import ru.tehkode.permissions.PermissionEntity;
 import ru.tehkode.permissions.PermissionGroup;
 import ru.tehkode.permissions.PermissionManager;
@@ -17,13 +24,6 @@ import ru.tehkode.permissions.bukkit.PermissionsEx;
 import ru.tehkode.permissions.events.PermissionEntityEvent;
 import ru.tehkode.permissions.events.PermissionSystemEvent;
 
-import com.palmergames.bukkit.towny.Towny;
-import com.palmergames.bukkit.towny.TownySettings;
-import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
-import com.palmergames.bukkit.towny.object.Resident;
-import com.palmergames.bukkit.towny.object.TownyUniverse;
-import com.palmergames.bukkit.util.BukkitTools;
-
 /**
  * @author ElgarL
  * 
@@ -31,7 +31,6 @@ import com.palmergames.bukkit.util.BukkitTools;
 public class PEXSource extends TownyPermissionSource {
 
 	public PEXSource(Towny towny, Plugin test) {
-
 		this.pex = (PermissionsEx) test;
 		this.plugin = towny;
 
@@ -71,12 +70,9 @@ public class PEXSource extends TownyPermissionSource {
 		if (user == null)
 			user = "";
 
-		if (!group.equals(user))
-			user = group + user;
+		if (!group.equals(user)) user = group + user;
 		user = TownySettings.parseSingleLineString(user);
-
 		return user;
-
 	}
 
 	/**
@@ -139,11 +135,8 @@ public class PEXSource extends TownyPermissionSource {
 	 */
 	@Override
 	public String getPlayerGroup(Player player) {
-
 		PermissionManager pexPM = PermissionsEx.getPermissionManager();
-
 		return pexPM.getUser(player).getGroupsNames()[0];
-
 	}
 
 	/**
@@ -153,11 +146,8 @@ public class PEXSource extends TownyPermissionSource {
 	 * @return Array of groups for this player
 	 */
 	public PermissionGroup[] getPlayerGroups(Player player) {
-
 		PermissionManager pexPM = PermissionsEx.getPermissionManager();
-
 		return pexPM.getUser(player).getGroups();
-
 	}
 
 	protected class PEXCustomEventListener implements Listener {

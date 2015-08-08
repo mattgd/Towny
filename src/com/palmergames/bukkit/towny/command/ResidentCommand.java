@@ -13,8 +13,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 
-import com.earth2me.essentials.Teleport;
-import com.earth2me.essentials.User;
 import com.palmergames.bukkit.towny.Towny;
 import com.palmergames.bukkit.towny.TownyEconomyHandler;
 import com.palmergames.bukkit.towny.TownyFormatter;
@@ -244,25 +242,12 @@ public class ResidentCommand extends BaseCommand implements CommandExecutor {
 			// Used later to make sure the chunk we teleport to is loaded.
 			Chunk chunk = spawnLoc.getChunk();
 
-			// Essentials tests
-			boolean UsingESS = plugin.isEssentials();
-
-			if (UsingESS && !isTownyAdmin) {
+			if (!isTownyAdmin) {
 				try {
-					User user = plugin.getEssentials().getUser(player);
-
-					if (!user.isJailed()) {
-
-						Teleport teleport = user.getTeleport();
-						if (!chunk.isLoaded())
-							chunk.load();
-						// Cause an essentials exception if in cooldown.
-						teleport.cooldown(true);
-						teleport.teleport(spawnLoc, null);
-					}
+					if (!chunk.isLoaded()) chunk.load(); //TODO Why is this here?
+					player.teleport(spawnLoc, null);
 				} catch (Exception e) {
 					TownyMessaging.sendErrorMsg(player, "Error: " + e.getMessage());
-					// cooldown?
 					return;
 				}
 			}
@@ -284,19 +269,17 @@ public class ResidentCommand extends BaseCommand implements CommandExecutor {
 				return;
 			}
 
-			if (!UsingESS) {
-				if (TownyTimerHandler.isTeleportWarmupRunning()) {
-					// Use teleport warmup
-					player.sendMessage(String.format(TownySettings.getLangString("msg_town_spawn_warmup"), TownySettings.getTeleportWarmupTime()));
-					plugin.getTownyUniverse().requestTeleport(player, spawnLoc, travelCost);
-				} else {
-					// Don't use teleport warmup
-					if (player.getVehicle() != null)
-						player.getVehicle().eject();
-					if (!chunk.isLoaded())
-						chunk.load();
-					player.teleport(spawnLoc, TeleportCause.COMMAND);
-				}
+			if (TownyTimerHandler.isTeleportWarmupRunning()) {
+				// Use teleport warmup
+				player.sendMessage(String.format(TownySettings.getLangString("msg_town_spawn_warmup"), TownySettings.getTeleportWarmupTime()));
+				plugin.getTownyUniverse().requestTeleport(player, spawnLoc, travelCost);
+			} else {
+				// Don't use teleport warmup
+				if (player.getVehicle() != null)
+					player.getVehicle().eject();
+				if (!chunk.isLoaded())
+					chunk.load();
+				player.teleport(spawnLoc, TeleportCause.COMMAND);
 			}
 		} catch (TownyException e) {
 			TownyMessaging.sendErrorMsg(player, e.getMessage());

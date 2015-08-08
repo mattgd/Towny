@@ -1,17 +1,51 @@
 package com.palmergames.bukkit.towny;
 
-import ca.xshade.bukkit.questioner.Questioner;
-import ca.xshade.questionmanager.Option;
-import ca.xshade.questionmanager.Question;
-import com.earth2me.essentials.Essentials;
-import com.nijiko.permissions.PermissionHandler;
-import com.palmergames.bukkit.metrics.Metrics;
-import com.palmergames.bukkit.towny.command.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.bukkit.ChatColor;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import com.palmergames.bukkit.towny.command.NationCommand;
+import com.palmergames.bukkit.towny.command.PlotCommand;
+import com.palmergames.bukkit.towny.command.ResidentCommand;
+import com.palmergames.bukkit.towny.command.TownCommand;
+import com.palmergames.bukkit.towny.command.TownyAdminCommand;
+import com.palmergames.bukkit.towny.command.TownyCommand;
+import com.palmergames.bukkit.towny.command.TownyWorldCommand;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
-import com.palmergames.bukkit.towny.listeners.*;
-import com.palmergames.bukkit.towny.object.*;
-import com.palmergames.bukkit.towny.permissions.*;
+import com.palmergames.bukkit.towny.listeners.TownyBlockListener;
+import com.palmergames.bukkit.towny.listeners.TownyBlockPhysicsListener;
+import com.palmergames.bukkit.towny.listeners.TownyCustomListener;
+import com.palmergames.bukkit.towny.listeners.TownyEntityListener;
+import com.palmergames.bukkit.towny.listeners.TownyEntityMonitorListener;
+import com.palmergames.bukkit.towny.listeners.TownyPlayerListener;
+import com.palmergames.bukkit.towny.listeners.TownyVehicleListener;
+import com.palmergames.bukkit.towny.listeners.TownyWeatherListener;
+import com.palmergames.bukkit.towny.listeners.TownyWorldListener;
+import com.palmergames.bukkit.towny.object.Coord;
+import com.palmergames.bukkit.towny.object.PlayerCache;
+import com.palmergames.bukkit.towny.object.Resident;
+import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.object.TownyUniverse;
+import com.palmergames.bukkit.towny.object.TownyWorld;
+import com.palmergames.bukkit.towny.object.WorldCoord;
+import com.palmergames.bukkit.towny.permissions.BukkitPermSource;
+import com.palmergames.bukkit.towny.permissions.NullPermSource;
+import com.palmergames.bukkit.towny.permissions.PEXSource;
+import com.palmergames.bukkit.towny.permissions.TownyPerms;
+import com.palmergames.bukkit.towny.permissions.VaultPermSource;
 import com.palmergames.bukkit.towny.questioner.TownyQuestionTask;
 import com.palmergames.bukkit.towny.regen.TownyRegenAPI;
 import com.palmergames.bukkit.towny.utils.PlayerCacheUtil;
@@ -23,17 +57,10 @@ import com.palmergames.bukkit.util.BukkitTools;
 import com.palmergames.util.FileMgmt;
 import com.palmergames.util.JavaUtil;
 import com.palmergames.util.StringMgmt;
-import org.bukkit.ChatColor;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import ca.xshade.bukkit.questioner.Questioner;
+import ca.xshade.questionmanager.Option;
+import ca.xshade.questionmanager.Question;
 
 /**
  * Towny Plugin for Bukkit
@@ -47,9 +74,6 @@ import java.util.regex.Pattern;
 public class Towny extends JavaPlugin {
 
 	private String version = "2.0.0";
-
-	public static PermissionHandler permissionHandler;
-
 	private final TownyPlayerListener playerListener = new TownyPlayerListener(this);
 	private final TownyVehicleListener vehicleListener = new TownyVehicleListener(this);
 	private final TownyBlockListener blockListener = new TownyBlockListener(this);
@@ -62,33 +86,15 @@ public class Towny extends JavaPlugin {
 	private final TownyWarBlockListener townyWarBlockListener = new TownyWarBlockListener(this);
 	private final TownyWarCustomListener townyWarCustomListener = new TownyWarCustomListener(this);
 	private final TownyWarEntityListener townyWarEntityListener = new TownyWarEntityListener(this);
-
 	private TownyUniverse townyUniverse;
-
 	private Map<String, PlayerCache> playerCache = Collections.synchronizedMap(new HashMap<String, PlayerCache>());
-
-	private Essentials essentials = null;
-	private boolean citizens2 = false;
-
 	private boolean error = false;
 
 	@Override
 	public void onEnable() {
-
 		System.out.println("====================      Towny      ========================");
-		
-		/*
-		 * Register Metrics
-		 */
-		try {
-		    Metrics metrics = new Metrics(this);
-		    metrics.start();
-		} catch (IOException e) {
-			System.err.println("[Towny] Error setting up metrics");
-		}
 
 		version = this.getDescription().getVersion();
-
 		townyUniverse = new TownyUniverse(this);
 
 		// Setup classes
@@ -168,17 +174,11 @@ public class Towny extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
-
 		System.out.println("==============================================================");
 
-		if (TownyUniverse.getDataSource() != null && error == false)
-			TownyUniverse.getDataSource().saveQueues();
-
-		if (error == false)
-			TownyWar.onDisable();
-
-		if (TownyUniverse.isWarTime())
-			getTownyUniverse().getWarEvent().toggleEnd();
+		if (TownyUniverse.getDataSource() != null && error == false) TownyUniverse.getDataSource().saveQueues();
+		if (error == false) TownyWar.onDisable();
+		if (TownyUniverse.isWarTime()) getTownyUniverse().getWarEvent().toggleEnd();
 
 		TownyTimerHandler.toggleTownyRepeatingTimer(false);
 		TownyTimerHandler.toggleDailyTimer(false);
@@ -187,12 +187,8 @@ public class Towny extends JavaPlugin {
 		TownyTimerHandler.toggleTeleportWarmup(false);
 
 		TownyRegenAPI.cancelProtectionRegenTasks();
-
 		playerCache.clear();
-		
-		// Shut down our saving task.
-		TownyUniverse.getDataSource().cancelTask();
-
+		TownyUniverse.getDataSource().cancelTask(); // Shut down our saving task.
 		townyUniverse = null;
 
 		System.out.println("[Towny] Version: " + version + " - Mod Disabled");
@@ -264,89 +260,51 @@ public class Towny extends JavaPlugin {
 		Plugin test;
 
 		if (TownySettings.isUsingPermissions()) {
-			test = getServer().getPluginManager().getPlugin("GroupManager");
+			test = getServer().getPluginManager().getPlugin("PermissionsEx");
 			if (test != null) {
-				// groupManager = (GroupManager)test;
-				this.getTownyUniverse().setPermissionSource(new GroupManagerSource(this, test));
-				using.add(String.format("%s v%s", "GroupManager", test.getDescription().getVersion()));
+				// permissions = (PermissionsEX)test;
+				getTownyUniverse().setPermissionSource(new PEXSource(this, test));
+				using.add(String.format("%s v%s", "PermissionsEX", test.getDescription().getVersion()));
 			} else {
-				test = getServer().getPluginManager().getPlugin("PermissionsEx");
+				// Try Vault
+				test = getServer().getPluginManager().getPlugin("Vault");
 				if (test != null) {
-					// permissions = (PermissionsEX)test;
-					getTownyUniverse().setPermissionSource(new PEXSource(this, test));
-					using.add(String.format("%s v%s", "PermissionsEX", test.getDescription().getVersion()));
-				} else {
-					test = getServer().getPluginManager().getPlugin("bPermissions");
-					if (test != null) {
-						// permissions = (Permissions)test;
-						getTownyUniverse().setPermissionSource(new bPermsSource(this, test));
-						using.add(String.format("%s v%s", "bPermissions", test.getDescription().getVersion()));
+					net.milkbowl.vault.chat.Chat chat = getServer().getServicesManager().load(net.milkbowl.vault.chat.Chat.class);
+					if (chat == null) {
+						// No Chat implementation
+						test = null;
+						// Fall back to BukkitPermissions below
 					} else {
-						test = getServer().getPluginManager().getPlugin("Permissions");
-						if (test != null) {
-							// permissions = (Permissions)test;
-							getTownyUniverse().setPermissionSource(new Perms3Source(this, test));
-							using.add(String.format("%s v%s", "Permissions", test.getDescription().getVersion()));
-						} else {
-							// Try Vault
-							test = getServer().getPluginManager().getPlugin("Vault");
-							if (test != null) {
-								net.milkbowl.vault.chat.Chat chat = getServer().getServicesManager().load(net.milkbowl.vault.chat.Chat.class);
-								if (chat == null) {
-									// No Chat implementation
-									test = null;
-									// Fall back to BukkitPermissions below
-								} else {
-									getTownyUniverse().setPermissionSource(new VaultPermSource(this, chat));
-									using.add(String.format("%s v%s", "Vault", test.getDescription().getVersion()));
-								}
-							}
-
-							if (test == null) {
-								getTownyUniverse().setPermissionSource(new BukkitPermSource(this));
-								using.add("BukkitPermissions");
-							}
-						}
+						getTownyUniverse().setPermissionSource(new VaultPermSource(this, chat));
+						using.add(String.format("%s v%s", "Vault", test.getDescription().getVersion()));
 					}
+				}
+
+				if (test == null) {
+					getTownyUniverse().setPermissionSource(new BukkitPermSource(this));
+					using.add("BukkitPermissions");
 				}
 			}
 		} else {
-			// Not using Permissions
-			getTownyUniverse().setPermissionSource(new NullPermSource(this));
+			getTownyUniverse().setPermissionSource(new NullPermSource(this)); // Not using Permissions
 		}
 
 		if (TownySettings.isUsingEconomy()) {
-
-			if (TownyEconomyHandler.setupEconomy())
+			if (TownyEconomyHandler.setupEconomy()) {
 				using.add(TownyEconomyHandler.getVersion());
-			else
+			} else {
 				TownyMessaging.sendErrorMsg("No compatible Economy plugins found. You need iConomy 5.01, or the vault/Register.jar with any of the supported eco systems.");
+			}
 		}
-
-		test = getServer().getPluginManager().getPlugin("Essentials");
-		if (test == null)
-			TownySettings.setUsingEssentials(false);
-		else if (TownySettings.isUsingEssentials()) {
-			this.essentials = (Essentials) test;
-			using.add(String.format("%s v%s", "Essentials", test.getDescription().getVersion()));
-		}
-
+		
 		test = getServer().getPluginManager().getPlugin("Questioner");
-		if (test == null)
+		if (test == null) {
 			TownySettings.setUsingQuestioner(false);
-		else if (TownySettings.isUsingQuestioner())
+		} else if (TownySettings.isUsingQuestioner()) {
 			using.add(String.format("%s v%s", "Questioner", test.getDescription().getVersion()));
-
-		/*
-		 * Test for Citizens2 so we can avoid removing their NPC's
-		 */
-		test = getServer().getPluginManager().getPlugin("Citizens");
-		if (test != null) {
-			citizens2 = test.getDescription().getVersion().startsWith("2");
 		}
-
-		if (using.size() > 0)
-			TownyLogger.log.info("[Towny] Using: " + StringMgmt.join(using, ", "));
+		
+		if (using.size() > 0) TownyLogger.log.info("[Towny] Using: " + StringMgmt.join(using, ", "));
 	}
 
 	private void registerEvents() {
@@ -366,10 +324,7 @@ public class Towny extends JavaPlugin {
 			pluginManager.registerEvents(customListener, this);
 			pluginManager.registerEvents(worldListener, this);
 
-			// Only register a physics listener if we need to.
-			if (TownySettings.getRegenDelay() > 0)
-				pluginManager.registerEvents(physicsListener, this);
-
+			if (TownySettings.getRegenDelay() > 0) pluginManager.registerEvents(physicsListener, this); // Only register a physics listener if we need to
 		}
 
 		// Always register these events.
@@ -387,8 +342,7 @@ public class Towny extends JavaPlugin {
 			TownyLogger.log.info("------------------------------------");
 			TownyLogger.log.info("[Towny] ChangeLog up until v" + getVersion());
 			String lastVersion = TownySettings.getLastRunVersion(getVersion()).split("_")[0];
-			for (String line : changeLog) { // TODO: crawl from the bottom, then
-											// past from that index.
+			for (String line : changeLog) { // TODO: crawl from the bottom, then past from that index.
 				if (line.startsWith("v" + lastVersion))
 					display = true;
 				if (display && line.replaceAll(" ", "").replaceAll("\t", "").length() > 0)
@@ -437,32 +391,7 @@ public class Towny extends JavaPlugin {
 
 	// is permissions active
 	public boolean isPermissions() {
-
 		return TownySettings.isUsingPermissions();
-	}
-
-	// is Essentials active
-	public boolean isEssentials() {
-
-		return (TownySettings.isUsingEssentials() && (this.essentials != null));
-	}
-
-	// is Citizens2 active
-	public boolean isCitizens2() {
-
-		return citizens2;
-	}
-
-	/**
-	 * @return Essentials object
-	 * @throws TownyException
-	 */
-	public Essentials getEssentials() throws TownyException {
-
-		if (essentials == null)
-			throw new TownyException("Essentials is not installed, or not enabled!");
-		else
-			return essentials;
 	}
 
 	public World getServerWorld(String name) throws NotRegisteredException {

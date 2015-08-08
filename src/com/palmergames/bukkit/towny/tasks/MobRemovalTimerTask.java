@@ -1,22 +1,24 @@
 package com.palmergames.bukkit.towny.tasks;
 
-import com.palmergames.bukkit.towny.Towny;
-import com.palmergames.bukkit.towny.TownyMessaging;
-import com.palmergames.bukkit.towny.TownySettings;
-import com.palmergames.bukkit.towny.event.MobRemovalEvent;
-import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
-import com.palmergames.bukkit.towny.object.*;
-import com.palmergames.bukkit.towny.utils.EntityTypeUtil;
-
-import net.citizensnpcs.api.CitizensAPI;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.LivingEntity;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.palmergames.bukkit.towny.Towny;
+import com.palmergames.bukkit.towny.TownyMessaging;
+import com.palmergames.bukkit.towny.TownySettings;
+import com.palmergames.bukkit.towny.event.MobRemovalEvent;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
+import com.palmergames.bukkit.towny.object.Coord;
+import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.object.TownBlock;
+import com.palmergames.bukkit.towny.object.TownyUniverse;
+import com.palmergames.bukkit.towny.object.TownyWorld;
+import com.palmergames.bukkit.towny.utils.EntityTypeUtil;
 
 public class MobRemovalTimerTask extends TownyTimerTask {
 
@@ -111,12 +113,6 @@ public class MobRemovalTimerTask extends TownyTimerTask {
 
 					// Check that Towny is removing this type of entity in unregistered plots.
 					if (!isRemovingWorldEntity(livingEntity))
-						continue;
-				}
-
-				// Check if entity is a Citizens NPC
-				if (plugin.isCitizens2()) {
-					if (CitizensAPI.getNPCRegistry().isNPC(livingEntity))
 						continue;
 				}
 

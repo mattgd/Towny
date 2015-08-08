@@ -1,14 +1,46 @@
 package com.palmergames.bukkit.towny.command;
 
-import ca.xshade.bukkit.questioner.Questioner;
-import ca.xshade.questionmanager.Option;
-import ca.xshade.questionmanager.Question;
-import com.earth2me.essentials.Teleport;
-import com.earth2me.essentials.User;
-import com.palmergames.bukkit.towny.*;
+import static com.palmergames.bukkit.towny.object.TownyObservableType.TOWN_ADD_RESIDENT;
+import static com.palmergames.bukkit.towny.object.TownyObservableType.TOWN_REMOVE_RESIDENT;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import javax.naming.InvalidNameException;
+
+import org.bukkit.Chunk;
+import org.bukkit.Location;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.plugin.Plugin;
+
+import com.palmergames.bukkit.towny.Towny;
+import com.palmergames.bukkit.towny.TownyEconomyHandler;
+import com.palmergames.bukkit.towny.TownyFormatter;
+import com.palmergames.bukkit.towny.TownyMessaging;
+import com.palmergames.bukkit.towny.TownySettings;
+import com.palmergames.bukkit.towny.TownyTimerHandler;
 import com.palmergames.bukkit.towny.event.NewTownEvent;
-import com.palmergames.bukkit.towny.exceptions.*;
-import com.palmergames.bukkit.towny.object.*;
+import com.palmergames.bukkit.towny.exceptions.AlreadyRegisteredException;
+import com.palmergames.bukkit.towny.exceptions.EconomyException;
+import com.palmergames.bukkit.towny.exceptions.EmptyTownException;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
+import com.palmergames.bukkit.towny.exceptions.TownyException;
+import com.palmergames.bukkit.towny.object.Coord;
+import com.palmergames.bukkit.towny.object.Nation;
+import com.palmergames.bukkit.towny.object.Resident;
+import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.object.TownBlock;
+import com.palmergames.bukkit.towny.object.TownBlockOwner;
+import com.palmergames.bukkit.towny.object.TownSpawnLevel;
+import com.palmergames.bukkit.towny.object.TownyPermission;
+import com.palmergames.bukkit.towny.object.TownyUniverse;
+import com.palmergames.bukkit.towny.object.TownyWorld;
+import com.palmergames.bukkit.towny.object.WorldCoord;
 import com.palmergames.bukkit.towny.permissions.PermissionNodes;
 import com.palmergames.bukkit.towny.permissions.TownyPerms;
 import com.palmergames.bukkit.towny.questioner.JoinTownTask;
@@ -24,22 +56,9 @@ import com.palmergames.bukkit.util.Colors;
 import com.palmergames.bukkit.util.NameValidation;
 import com.palmergames.util.StringMgmt;
 
-import org.bukkit.Chunk;
-import org.bukkit.Location;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
-import org.bukkit.plugin.Plugin;
-
-import javax.naming.InvalidNameException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import static com.palmergames.bukkit.towny.object.TownyObservableType.TOWN_ADD_RESIDENT;
-import static com.palmergames.bukkit.towny.object.TownyObservableType.TOWN_REMOVE_RESIDENT;
+import ca.xshade.bukkit.questioner.Questioner;
+import ca.xshade.questionmanager.Option;
+import ca.xshade.questionmanager.Question;
 
 /**
  * Send a list of all town help commands to player Command: /town
@@ -1362,37 +1381,22 @@ public class TownCommand extends BaseCommand implements CommandExecutor {
 			if (travelCost > 0 && TownySettings.isUsingEconomy() && (resident.getHoldingBalance() < travelCost))
 				throw new TownyException(notAffordMSG);
 
-			// Used later to make sure the chunk we teleport to is loaded.
-			Chunk chunk = spawnLoc.getChunk();
+			Chunk chunk = spawnLoc.getChunk(); // Used later to make sure the chunk we teleport to is loaded.
 
-			// Essentials tests
-			boolean UsingESS = plugin.isEssentials();
-
-			if (UsingESS && !isTownyAdmin) {
+			if (!isTownyAdmin) {
 				try {
-					User user = plugin.getEssentials().getUser(player);
-
-					if (!user.isJailed()) {
-
-						Teleport teleport = user.getTeleport();
-						if (!chunk.isLoaded())
-							chunk.load();
-						// Cause an essentials exception if in cooldown.
-						teleport.cooldown(true);
-						teleport.teleport(spawnLoc, null);
-					}
+					if (!chunk.isLoaded()) chunk.load();
+					player.teleport(spawnLoc, null);
 				} catch (Exception e) {
 					TownyMessaging.sendErrorMsg(player, "Error: " + e.getMessage());
-					// cooldown?
 					return;
 				}
 			}
 
-			// Show message if we are using iConomy and are charging for spawn
-			// travel.
+			// Show message if we are using iConomy and are charging for spawn travel
 			if (travelCost > 0 && TownySettings.isUsingEconomy() && resident.payTo(travelCost, town, String.format("Town Spawn (%s)", townSpawnPermission))) {
 				TownyMessaging.sendMsg(player, String.format(TownySettings.getLangString("msg_cost_spawn"), TownyEconomyHandler.getFormattedBalance(travelCost))); // +
-																																									// TownyEconomyObject.getEconomyCurrency()));
+				// TownyEconomyObject.getEconomyCurrency()));
 			}
 
 			// If an Admin or Essentials teleport isn't being used, use our own.
@@ -1405,19 +1409,17 @@ public class TownCommand extends BaseCommand implements CommandExecutor {
 				return;
 			}
 
-			if (!UsingESS) {
-				if (TownyTimerHandler.isTeleportWarmupRunning()) {
-					// Use teleport warmup
-					player.sendMessage(String.format(TownySettings.getLangString("msg_town_spawn_warmup"), TownySettings.getTeleportWarmupTime()));
-					plugin.getTownyUniverse().requestTeleport(player, spawnLoc, travelCost);
-				} else {
-					// Don't use teleport warmup
-					if (player.getVehicle() != null)
-						player.getVehicle().eject();
-					if (!chunk.isLoaded())
-						chunk.load();
-					player.teleport(spawnLoc, TeleportCause.COMMAND);
-				}
+			if (TownyTimerHandler.isTeleportWarmupRunning()) {
+				// Use teleport warmup
+				player.sendMessage(String.format(TownySettings.getLangString("msg_town_spawn_warmup"), TownySettings.getTeleportWarmupTime()));
+				plugin.getTownyUniverse().requestTeleport(player, spawnLoc, travelCost);
+			} else {
+				// Don't use teleport warmup
+				if (player.getVehicle() != null)
+					player.getVehicle().eject();
+				if (!chunk.isLoaded())
+					chunk.load();
+				player.teleport(spawnLoc, TeleportCause.COMMAND);
 			}
 		} catch (TownyException e) {
 			TownyMessaging.sendErrorMsg(player, e.getMessage());
